@@ -14,7 +14,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { LEVELS } from '../config/levels';
 import { Difference } from '../types';
 import { StorageService } from '../utils/storage';
-import { CheckIcon, CloseIcon,TrophyIcon } from '../lib/images';
+import { CheckIcon, CloseIcon, BrokenHeartIcon } from '../lib/images';
 
 const GameScreen = () => {
   const navigation = useNavigation();
@@ -25,10 +25,12 @@ const GameScreen = () => {
   const [attempts, setAttempts] = useState(3);
   const [foundDifferences, setFoundDifferences] = useState<Difference[]>([]);
   const [showCongrats, setShowCongrats] = useState(false);
-  const [incorrectSpots, setIncorrectSpots] = useState<Array<{ x: number; y: number; id: number }>>([]);
+  const [showGameOver, setShowGameOver] = useState(false);
+  const [incorrectSpots, setIncorrectSpots] = useState<Array<{ x: number; y: number; id: number; animation: Animated.Value }>>([]);
   
   // Animation values
   const congratsScale = useRef(new Animated.Value(0)).current;
+  const gameOverScale = useRef(new Animated.Value(0)).current;
   const congratsConfetti = useRef(new Animated.Value(0)).current;
   const progressBarWidth = useRef(new Animated.Value(0)).current;
 
@@ -37,6 +39,21 @@ const GameScreen = () => {
       navigation.goBack();
     }
   }, [level]);
+
+  const handleRestart = () => {
+    setShowGameOver(false);
+    setAttempts(3);
+    setFoundDifferences([]);
+    setIncorrectSpots([]);
+    gameOverScale.setValue(0);
+  };
+
+  const handleQuit = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' as never }],
+    });
+  };
 
   const animateProgressBar = () => {
     const progress = (foundDifferences.length / level!.differences.length) * 100;
@@ -58,7 +75,6 @@ const GameScreen = () => {
       await StorageService.unlockNextLevel(levelId);
       setShowCongrats(true);
       
-      // Animate congratulatory screen
       Animated.sequence([
         Animated.spring(congratsScale, {
           toValue: 1,
@@ -77,6 +93,33 @@ const GameScreen = () => {
     }
   };
 
+  const handleGameOver = () => {
+    setShowGameOver(true);
+    Animated.spring(gameOverScale, {
+      toValue: 1,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const animateSpot = (spotAnimation: Animated.Value) => {
+    Animated.sequence([
+      Animated.spring(spotAnimation, {
+        toValue: 1,
+        friction: 3,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(spotAnimation, {
+        toValue: 0,
+        duration: 200,
+        delay: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const handleImagePress = (event: any, imageNumber: number) => {
     if (!level || attempts <= 0) return;
 
@@ -90,7 +133,6 @@ const GameScreen = () => {
     });
 
     if (foundDifference) {
-      // Animate correct spot
       const newFoundDifferences = [...foundDifferences, foundDifference];
       setFoundDifferences(newFoundDifferences);
       
@@ -98,11 +140,12 @@ const GameScreen = () => {
         handleLevelComplete();
       }
     } else {
-      // Show and animate incorrect spot
+      const spotAnimation = new Animated.Value(0);
       const newSpotId = Date.now();
-      setIncorrectSpots(prev => [...prev, { x: locationX, y: locationY, id: newSpotId }]);
+      setIncorrectSpots(prev => [...prev, { x: locationX, y: locationY, id: newSpotId, animation: spotAnimation }]);
       
-      // Remove incorrect spot after animation
+      animateSpot(spotAnimation);
+      
       setTimeout(() => {
         setIncorrectSpots(prev => prev.filter(spot => spot.id !== newSpotId));
       }, 1000);
@@ -111,7 +154,7 @@ const GameScreen = () => {
       setAttempts(newAttempts);
       
       if (newAttempts === 0) {
-        navigation.goBack();
+        handleGameOver();
       }
     }
   };
@@ -143,6 +186,20 @@ const GameScreen = () => {
           {
             left: spot.x - 15,
             top: spot.y - 15,
+            transform: [
+              {
+                scale: spot.animation.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0, 1.2, 1],
+                }),
+              },
+              {
+                rotate: spot.animation.interpolate({
+                  inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1],
+                  outputRange: ['0deg', '-10deg', '10deg', '-10deg', '10deg', '0deg'],
+                }),
+              },
+            ],
           },
         ]}
       >
@@ -165,7 +222,6 @@ const GameScreen = () => {
           <Text style={styles.congratsTitle}>Félicitations !</Text>
           <View style={styles.levelPreview}>
             <Image source={level?.originalImage} style={styles.previewImage} />
-            {renderSpots(1)}
           </View>
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
@@ -181,7 +237,6 @@ const GameScreen = () => {
                 ]}
               />
             </View>
-            
           </View>
           <TouchableWithoutFeedback
             onPress={() => {
@@ -228,7 +283,7 @@ const GameScreen = () => {
       <View style={styles.imagesContainer}>
         <TouchableWithoutFeedback onPress={(e) => handleImagePress(e, 1)}>
           <View style={styles.imageWrapper}>
-            <Image source={level.originalImage} style={styles.image} />
+            <Image source={level.originalImage} style={styles.image} resizeMode="contain" />
             {renderSpots(1)}
             {renderIncorrectSpots()}
           </View>
@@ -236,7 +291,7 @@ const GameScreen = () => {
 
         <TouchableWithoutFeedback onPress={(e) => handleImagePress(e, 2)}>
           <View style={styles.imageWrapper}>
-            <Image source={level.modifiedImage} style={styles.image} />
+            <Image source={level.modifiedImage} style={styles.image} resizeMode="contain" />
             {renderSpots(2)}
             {renderIncorrectSpots()}
           </View>
@@ -244,10 +299,55 @@ const GameScreen = () => {
       </View>
 
       <CongratsModal />
+      <GameOverModal 
+        visible={showGameOver}
+        onRestart={handleRestart}
+        onQuit={handleQuit}
+        scale={gameOverScale}
+      />
     </SafeAreaView>
   );
 };
 
+const GameOverModal = ({ 
+  visible, 
+  onRestart, 
+  onQuit, 
+  scale 
+}: { 
+  visible: boolean; 
+  onRestart: () => void; 
+  onQuit: () => void; 
+  scale: Animated.Value; 
+}) => (
+  <Modal visible={visible} transparent animationType="none">
+    <View style={styles.modalContainer}>
+      <Animated.View
+        style={[
+          styles.gameOverCard,
+          {
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <Text style={styles.gameOverTitle}>Plus de vie !</Text>
+        <Image source={BrokenHeartIcon} style={styles.brokenHeartIcon} />
+        <View style={styles.buttonContainer}>
+          <TouchableWithoutFeedback onPress={onRestart}>
+            <View style={[styles.button, styles.retryButton]}>
+              <Text style={styles.buttonText}>Recommencer</Text>
+            </View>
+          </TouchableWithoutFeedback>
+          <TouchableWithoutFeedback onPress={onQuit}>
+            <View style={[styles.button, styles.quitButton]}>
+              <Text style={styles.buttonText}>Quitter</Text>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </Animated.View>
+    </View>
+  </Modal>
+);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -288,23 +388,26 @@ const styles = StyleSheet.create({
   },
   imagesContainer: {
     flex: 1,
-    padding: 8,
-    gap: 8,
+    flexDirection: 'column',
+    gap: 4,
+    paddingHorizontal: 4,
   },
   imageWrapper: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'contain',
   },
   spot: {
     position: 'absolute',
     borderWidth: 3.5,
     borderColor: '#00FF00',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0, 255, 0, 0.2)',
   },
   incorrectSpot: {
     position: 'absolute',
@@ -318,7 +421,6 @@ const styles = StyleSheet.create({
   incorrectIcon: {
     width: 20,
     height: 20,
-    tintColor: 'red',
   },
   modalContainer: {
     flex: 1,
@@ -333,6 +435,7 @@ const styles = StyleSheet.create({
     width: '90%',
     alignItems: 'center',
   },
+
   congratsTitle: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -370,11 +473,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 25,
+    marginTop: 10,
+    alignItems:'center'
   },
   continueButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  brokenHeartIcon: {
+    width: 60,
+    height: 60,
+    marginBottom: 20,
+    tintColor: '#FF5252',
+  },
+  gameOverCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 30,
+    width: '90%',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  button: {
+    paddingVertical: 12,
+    borderRadius: 25,
+    width: '48%', // Instead of using maxWidth and flex
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  retryButton: {
+    backgroundColor: '#4CAF50',
+
+  },
+  quitButton: {
+    backgroundColor: '#FF5252',
+
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  gameOverTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+    textAlign: 'center',
   },
 });
 

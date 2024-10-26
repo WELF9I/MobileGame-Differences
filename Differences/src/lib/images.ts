@@ -10,6 +10,7 @@ import ghostIcon from '../assets/icons/ghost.png';
 import KeyIcon from '../assets/icons/key.png';
 import CloseIcon from '../assets/icons/close.png';
 import StarIcon from '../assets/icons/star.png';
+import BrokenHeartIcon from '../assets/icons/broken-heart.png';
 import CompletedIcon from '../assets/icons/completed.png';
 import Game1originalImage from '../assets/images/img1.png';
 import Game1modifiedImage from '../assets/images/img1.2.png';
@@ -32,6 +33,7 @@ export {
   CheckIcon,
   ghostIcon,
   KeyIcon,
+  BrokenHeartIcon,
   CompletedIcon,
   Game1originalImage,
   Game2originalImage,
