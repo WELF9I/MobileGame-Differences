@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEYS = {
   GAME_PROGRESS: 'game_progress',
   USER_SETTINGS: 'user_settings',
+  AUDIO_STATE: 'audio_state',
 };
 
 export interface GameProgress {
@@ -17,8 +18,14 @@ export interface UserSettings {
   language: string;
 }
 
+export interface AudioState {
+  musicVolume: number;
+  soundEffectsVolume: number;
+  lastMusicPosition?: number;
+}
+
 const defaultGameProgress: GameProgress = {
-  unlockedLevels: [1], // Only first level unlocked by default
+  unlockedLevels: [1],
   completedLevels: [],
 };
 
@@ -26,6 +33,12 @@ const defaultUserSettings: UserSettings = {
   soundEnabled: true,
   musicEnabled: true,
   language: 'fr',
+};
+
+const defaultAudioState: AudioState = {
+  musicVolume: 0.7,
+  soundEffectsVolume: 1.0,
+  lastMusicPosition: 0,
 };
 
 export const StorageService = {
@@ -51,7 +64,28 @@ export const StorageService = {
       console.error('Error initializing storage:', error);
     }
   },
+  async saveAudioState(state: Partial<AudioState>) {
+    try {
+      const currentState = await this.getAudioState();
+      const updatedState = { ...currentState, ...state };
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.AUDIO_STATE,
+        JSON.stringify(updatedState)
+      );
+    } catch (error) {
+      console.error('Error saving audio state:', error);
+    }
+  },
 
+  async getAudioState(): Promise<AudioState> {
+    try {
+      const state = await AsyncStorage.getItem(STORAGE_KEYS.AUDIO_STATE);
+      return state ? JSON.parse(state) : defaultAudioState;
+    } catch (error) {
+      console.error('Error getting audio state:', error);
+      return defaultAudioState;
+    }
+  },
   async getGameProgress(): Promise<GameProgress> {
     try {
       const progress = await AsyncStorage.getItem(STORAGE_KEYS.GAME_PROGRESS);

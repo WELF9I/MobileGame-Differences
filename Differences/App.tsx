@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Update the import to use default import
 import HomeScreen from './src/screens/HomeScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import GameScreen from './src/screens/GameScreen';
 import { ChallengesScreen } from './src/screens/ChallengesScreen';
 import { MainLayout } from './src/layouts/MainLayout';

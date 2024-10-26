@@ -1,22 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  Image, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ScrollView, 
+  SafeAreaView,
+  FlatList,
+  Dimensions
+} from 'react-native';
 import { LEVELS } from '../config/levels';
 import { GameProgress, StorageService } from '../utils/storage';
 import { 
   CalendarStarIcon, 
-  ClockIcon, 
-  CubeIcon, 
-  HomeIcon, 
-  LockIcon, 
   CompletedIcon,
   SettingsIcon, 
   TrophyIcon,
-  CheckIcon,
+  LockIcon,
   ghostIcon,
-  KeyIcon
 } from '../lib/images';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Level } from '../types';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_SPACING = 12;
+const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // Accounting for padding and gap
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -34,66 +43,54 @@ const HomeScreen = () => {
     setGameProgress(progress);
   };
 
-  const renderDailyChallenge = () => {
-    const currentDate = new Date();
-    const day = currentDate.getDate();
-    const months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-    const month = months[currentDate.getMonth()];
-    
-    return (
+  const renderDailyAndEventCards = () => (
+    <View style={styles.challengeContainer}>
       <TouchableOpacity
         style={styles.challengeCard}
         activeOpacity={0.8}
       >
         <Text style={styles.challengeTitle}>DÉFI QUOTIDIEN</Text>
         <View style={styles.challengeContent}>
-          <Text style={styles.challengeDate}>{`${day} ${month}`}</Text>
-          <Image 
-            source={CalendarStarIcon}
-            style={styles.calendarIcon}
-          />
+          <Text style={styles.challengeDate}>{`${new Date().getDate()} ${
+            ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'][new Date().getMonth()]
+          }`}</Text>
+          <Image source={CalendarStarIcon} style={styles.calendarIcon} />
         </View>
       </TouchableOpacity>
-    );
-  };
 
-  const renderEventCard = () => (
-    <TouchableOpacity
-      style={[styles.challengeCard, styles.eventCard]}
-      activeOpacity={0.8}
-    >
-      <Text style={styles.challengeTitle}>ÉVÈNEMENT</Text>
-      <View style={styles.challengeContent}>
-        <Text style={styles.challengeDate}>Halloween</Text>
-        <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>9j 14h</Text>
-          <Image 
-            source={ghostIcon} 
-            style={styles.ghostIcon}
-          />
+      <TouchableOpacity
+        style={[styles.challengeCard, styles.eventCard]}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.challengeTitle}>ÉVÈNEMENT</Text>
+        <View style={styles.challengeContent}>
+          <Text style={styles.challengeDate}>Halloween</Text>
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeText}>9j 14h</Text>
+            <Image source={ghostIcon} style={styles.ghostIcon} />
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 
-  const renderLevelCard = (level: Level) => {
-    const isUnlocked = gameProgress?.unlockedLevels.includes(level.id);
-    const isCompleted = gameProgress?.completedLevels.includes(level.id);
+  const renderGameItem = ({ item, index }: { item: Level, index: number }) => {
+    const isUnlocked = gameProgress?.unlockedLevels.includes(item.id);
+    const isCompleted = gameProgress?.completedLevels.includes(item.id);
 
     return (
       <TouchableOpacity
-        key={level.id}
-        style={styles.levelCard}
+        style={[styles.levelCard, { marginBottom: CARD_SPACING }]}
         activeOpacity={0.8}
         disabled={!isUnlocked}
         onPress={() => {
           if (isUnlocked) {
             //@ts-ignore
-            navigation.navigate('Game', { levelId: level.id });
+            navigation.navigate('Game', { levelId: item.id });
           }
         }}
       >
-        <Image source={level.coverImage} style={styles.levelImage} />
+        <Image source={item.coverImage} style={styles.levelImage} />
         {isCompleted && (
           <View style={styles.completedOverlay}>
             <Image source={CompletedIcon} style={styles.checkIcon} />
@@ -113,43 +110,54 @@ const HomeScreen = () => {
     );
   };
 
+  const renderGamePair = ({ item }: { item: Level[] }) => (
+    <View style={styles.gamePairContainer}>
+      {item.map((game, index) => (
+        <View key={game.id} style={index === 0 ? styles.topGame : styles.bottomGame}>
+          {renderGameItem({ item: game, index })}
+        </View>
+      ))}
+    </View>
+  );
+
+  // Group levels into pairs for the two-row layout
+  const groupedLevels = LEVELS.reduce((acc: Level[][], curr, i) => {
+    if (i % 2 === 0) {
+      acc.push([curr, LEVELS[i + 1]].filter(Boolean));
+    }
+    return acc;
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
-            <Image source={SettingsIcon} style={[styles.settingsIcon, { tintColor: '#3B82F6' }]} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.challengeContainer}>
-          {renderDailyChallenge()}
-          {renderEventCard()}
-        </View>
-
-        <View style={styles.levelsGrid}>
-          {LEVELS.map(level => renderLevelCard(level))}
-        </View>
-
-        <TouchableOpacity style={styles.getKeysButton}>
-          <Text style={styles.getKeysText}>Obtenir plus de clés</Text>
-          <Image source={KeyIcon} style={styles.keyIcon} />
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
+          <Image source={SettingsIcon} style={[styles.settingsIcon, { tintColor: '#3B82F6' }]} />
         </TouchableOpacity>
-      </ScrollView>
+      </View>
+
+      {renderDailyAndEventCards()}
+
+      <FlatList
+        data={groupedLevels}
+        renderItem={renderGamePair}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.gameListContainer}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        snapToInterval={CARD_WIDTH + CARD_SPACING}
+      />
+
     </SafeAreaView>
   );
 };
-
-export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F6FA',
-  },
-  scrollView: {
-    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -159,11 +167,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   headerSpacer: {
-    width: 40, // Same width as settings button for balance
-  },
-  trophyIcon: {
-    width: 24,
-    height: 24,
+    width: 40,
   },
   settingsIcon: {
     width: 24,
@@ -176,7 +180,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     gap: 12,
-    justifyContent: 'flex-end',
   },
   challengeCard: {
     flex: 1,
@@ -223,15 +226,21 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
-  levelsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    gap: 12,
-    justifyContent: 'center',
+  gameListContainer: {
+    paddingHorizontal: 16,
+  },
+  gamePairContainer: {
+    width: CARD_WIDTH,
+    marginRight: CARD_SPACING,
+  },
+  topGame: {
+    marginBottom: CARD_SPACING / 2,
+  },
+  bottomGame: {
+    marginTop: CARD_SPACING / 2,
   },
   levelCard: {
-    width: '45%',
+    width: '100%',
     aspectRatio: 1,
     borderRadius: 16,
     overflow: 'hidden',
@@ -274,24 +283,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  getKeysButton: {
-    flexDirection: 'row',
-    backgroundColor: '#3B82F6',
-    marginHorizontal: 16,
-    marginBottom: 24,
-    padding: 16,
-    borderRadius: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  getKeysText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  keyIcon: {
-    width: 20,
-    height: 20,
-  },
 });
+
+export default HomeScreen;

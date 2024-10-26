@@ -377,6 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    elevation:5,
   },
   statLabel: {
     fontSize: 16,
@@ -389,7 +390,6 @@ const styles = StyleSheet.create({
   imagesContainer: {
     flex: 1,
     flexDirection: 'column',
-    gap: 4,
     paddingHorizontal: 4,
   },
   imageWrapper: {
