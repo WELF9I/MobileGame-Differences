@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   Image,
   StyleSheet,
   TouchableWithoutFeedback,
-  Alert,
   Dimensions,
+  Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { LEVELS } from '../config/levels';
 import { Difference } from '../types';
 import { StorageService } from '../utils/storage';
-import { CheckIcon } from '../lib/images'; // Add this import
+import { CheckIcon, CloseIcon,TrophyIcon } from '../lib/images';
 
 const GameScreen = () => {
   const navigation = useNavigation();
@@ -23,33 +24,54 @@ const GameScreen = () => {
 
   const [attempts, setAttempts] = useState(3);
   const [foundDifferences, setFoundDifferences] = useState<Difference[]>([]);
+  const [showCongrats, setShowCongrats] = useState(false);
+  const [incorrectSpots, setIncorrectSpots] = useState<Array<{ x: number; y: number; id: number }>>([]);
   
+  // Animation values
+  const congratsScale = useRef(new Animated.Value(0)).current;
+  const congratsConfetti = useRef(new Animated.Value(0)).current;
+  const progressBarWidth = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (!level) {
       navigation.goBack();
     }
   }, [level]);
 
+  const animateProgressBar = () => {
+    const progress = (foundDifferences.length / level!.differences.length) * 100;
+    Animated.timing(progressBarWidth, {
+      toValue: progress,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  useEffect(() => {
+    if (level) {
+      animateProgressBar();
+    }
+  }, [foundDifferences]);
+
   const handleLevelComplete = async () => {
     try {
       await StorageService.unlockNextLevel(levelId);
+      setShowCongrats(true);
       
-      Alert.alert(
-        'Félicitations!',
-        'Vous avez trouvé toutes les différences!',
-        [
-          {
-            text: 'Retour au menu',
-            onPress: () => {
-              //@ts-ignore
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-              });
-            },
-          },
-        ]
-      );
+      // Animate congratulatory screen
+      Animated.sequence([
+        Animated.spring(congratsScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(congratsConfetti, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start();
     } catch (error) {
       console.error('Error handling level completion:', error);
     }
@@ -68,35 +90,35 @@ const GameScreen = () => {
     });
 
     if (foundDifference) {
+      // Animate correct spot
       const newFoundDifferences = [...foundDifferences, foundDifference];
       setFoundDifferences(newFoundDifferences);
       
-      // Show immediate visual feedback for successful find
       if (newFoundDifferences.length === level.differences.length) {
         handleLevelComplete();
       }
     } else {
+      // Show and animate incorrect spot
+      const newSpotId = Date.now();
+      setIncorrectSpots(prev => [...prev, { x: locationX, y: locationY, id: newSpotId }]);
+      
+      // Remove incorrect spot after animation
+      setTimeout(() => {
+        setIncorrectSpots(prev => prev.filter(spot => spot.id !== newSpotId));
+      }, 1000);
+
       const newAttempts = Math.max(0, attempts - 1);
       setAttempts(newAttempts);
       
       if (newAttempts === 0) {
-        Alert.alert(
-          'Game Over', 
-          'Vous avez épuisé toutes vos tentatives!',
-          [
-            {
-              text: 'Retour au menu',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
+        navigation.goBack();
       }
     }
   };
 
   const renderSpots = (imageNumber: number) => {
     return foundDifferences.map((diff, index) => (
-      <View
+      <Animated.View
         key={`${imageNumber}-${index}`}
         style={[
           styles.spot,
@@ -111,6 +133,72 @@ const GameScreen = () => {
       />
     ));
   };
+
+  const renderIncorrectSpots = () => {
+    return incorrectSpots.map((spot) => (
+      <Animated.View
+        key={spot.id}
+        style={[
+          styles.incorrectSpot,
+          {
+            left: spot.x - 15,
+            top: spot.y - 15,
+          },
+        ]}
+      >
+        <Image source={CloseIcon} style={styles.incorrectIcon} />
+      </Animated.View>
+    ));
+  };
+
+  const CongratsModal = () => (
+    <Modal visible={showCongrats} transparent animationType="none">
+      <View style={styles.modalContainer}>
+        <Animated.View
+          style={[
+            styles.congratsCard,
+            {
+              transform: [{ scale: congratsScale }],
+            },
+          ]}
+        >
+          <Text style={styles.congratsTitle}>Félicitations !</Text>
+          <View style={styles.levelPreview}>
+            <Image source={level?.originalImage} style={styles.previewImage} />
+            {renderSpots(1)}
+          </View>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: progressBarWidth.interpolate({
+                      inputRange: [0, 100],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+            
+          </View>
+          <TouchableWithoutFeedback
+            onPress={() => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' as never }],
+              });
+            }}
+          >
+            <View style={styles.continueButton}>
+              <Text style={styles.continueButtonText}>Continuer</Text>
+            </View>
+          </TouchableWithoutFeedback>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
 
   if (!level) return null;
 
@@ -142,6 +230,7 @@ const GameScreen = () => {
           <View style={styles.imageWrapper}>
             <Image source={level.originalImage} style={styles.image} />
             {renderSpots(1)}
+            {renderIncorrectSpots()}
           </View>
         </TouchableWithoutFeedback>
 
@@ -149,9 +238,12 @@ const GameScreen = () => {
           <View style={styles.imageWrapper}>
             <Image source={level.modifiedImage} style={styles.image} />
             {renderSpots(2)}
+            {renderIncorrectSpots()}
           </View>
         </TouchableWithoutFeedback>
       </View>
+
+      <CongratsModal />
     </SafeAreaView>
   );
 };
@@ -196,7 +288,8 @@ const styles = StyleSheet.create({
   },
   imagesContainer: {
     flex: 1,
-    padding: 16,
+    padding: 8,
+    gap: 8,
   },
   imageWrapper: {
     flex: 1,
@@ -212,6 +305,76 @@ const styles = StyleSheet.create({
     borderWidth: 3.5,
     borderColor: '#00FF00',
     backgroundColor: 'transparent',
+  },
+  incorrectSpot: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 0, 0, 0.3)',
+  },
+  incorrectIcon: {
+    width: 20,
+    height: 20,
+    tintColor: 'red',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  congratsCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    alignItems: 'center',
+  },
+  congratsTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  levelPreview: {
+    width: '100%',
+    height: 200,
+    marginBottom: 20,
+    position: 'relative',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+    borderRadius: 10,
+  },
+  progressContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+  },
+  continueButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  continueButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
 
