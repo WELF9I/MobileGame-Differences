@@ -11,7 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { LEVELS } from '../config/levels';
-import { Level, Difference } from '../types';
+import { Difference } from '../types';
+import { StorageService } from '../utils/storage';
+import { CheckIcon } from '../lib/images'; // Add this import
 
 const GameScreen = () => {
   const navigation = useNavigation();
@@ -28,12 +30,36 @@ const GameScreen = () => {
     }
   }, [level]);
 
+  const handleLevelComplete = async () => {
+    try {
+      await StorageService.unlockNextLevel(levelId);
+      
+      Alert.alert(
+        'Félicitations!',
+        'Vous avez trouvé toutes les différences!',
+        [
+          {
+            text: 'Retour au menu',
+            onPress: () => {
+              //@ts-ignore
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+              });
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error handling level completion:', error);
+    }
+  };
+
   const handleImagePress = (event: any, imageNumber: number) => {
     if (!level || attempts <= 0) return;
 
     const { locationX, locationY } = event.nativeEvent;
     
-    // Find if the click is near any difference spot
     const foundDifference = level.differences.find(diff => {
       const distance = Math.sqrt(
         Math.pow(diff.x - locationX, 2) + Math.pow(diff.y - locationY, 2)
@@ -42,17 +68,28 @@ const GameScreen = () => {
     });
 
     if (foundDifference) {
-      setFoundDifferences(prev => [...prev, foundDifference]);
+      const newFoundDifferences = [...foundDifferences, foundDifference];
+      setFoundDifferences(newFoundDifferences);
       
-      if (foundDifferences.length + 1 === level.differences.length) {
-        Alert.alert('Félicitations!', 'Vous avez trouvé toutes les différences!');
+      // Show immediate visual feedback for successful find
+      if (newFoundDifferences.length === level.differences.length) {
+        handleLevelComplete();
       }
     } else {
       const newAttempts = Math.max(0, attempts - 1);
       setAttempts(newAttempts);
       
       if (newAttempts === 0) {
-        Alert.alert('Game Over', 'Vous avez épuisé toutes vos tentatives!');
+        Alert.alert(
+          'Game Over', 
+          'Vous avez épuisé toutes vos tentatives!',
+          [
+            {
+              text: 'Retour au menu',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
       }
     }
   };
@@ -86,7 +123,16 @@ const GameScreen = () => {
             <Text style={styles.statLabel}>❤️ {attempts}</Text>
           </View>
           <View style={styles.stat}>
-            <Text style={styles.statLabel}>{foundDifferences.length}/{level.differences.length}</Text>
+            <Text style={styles.statLabel}>
+              {foundDifferences.length}/{level.differences.length}
+            </Text>
+            <Image 
+              source={CheckIcon} 
+              style={[
+                styles.checkIcon,
+                { opacity: foundDifferences.length > 0 ? 1 : 0.3 }
+              ]} 
+            />
           </View>
         </View>
       </View>
@@ -128,21 +174,28 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     gap: 16,
+    alignItems: 'center',
   },
   stat: {
     backgroundColor: '#FFF',
     padding: 8,
     borderRadius: 20,
     minWidth: 60,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   statLabel: {
     fontSize: 16,
     fontWeight: '600',
   },
+  checkIcon: {
+    width: 20,
+    height: 20,
+  },
   imagesContainer: {
     flex: 1,
-    gap: 16,
     padding: 16,
   },
   imageWrapper: {
@@ -156,7 +209,7 @@ const styles = StyleSheet.create({
   },
   spot: {
     position: 'absolute',
-    borderWidth: 2,
+    borderWidth: 3.5,
     borderColor: '#00FF00',
     backgroundColor: 'transparent',
   },
