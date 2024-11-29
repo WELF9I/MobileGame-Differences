@@ -15,7 +15,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { StorageService, UserSettings } from '../utils/storage';
 import { LinearGradient } from 'react-native-linear-gradient';
-
+import AudioManager from '../utils/AudioManager';
 // Import audio files
 const backgroundMusicFile = require('../lib/music.mp3');
 const tapSoundEffectFile = require('../lib/tap-sound.mp3');
@@ -64,10 +64,8 @@ const SettingsScreen = () => {
 
   useEffect(() => {
     loadSettings();
-    initializeAudio();
-    
     return () => {
-      cleanupAudio();
+      // No need to cleanup audio here anymore
     };
   }, []);
 
@@ -134,40 +132,24 @@ const SettingsScreen = () => {
   const handleMusicToggle = async () => {
     const newMusicEnabled = !settings.musicEnabled;
     setSettings(prev => ({ ...prev, musicEnabled: newMusicEnabled }));
-    
-    if (newMusicEnabled) {
-      backgroundMusic?.play();
-    } else {
-      backgroundMusic?.pause();
-    }
-
-    // Save the current music position
-    if (backgroundMusic) {
-      backgroundMusic.getCurrentTime((seconds) => {
-        StorageService.saveAudioState({ lastMusicPosition: seconds });
-      });
-    }
+    AudioManager.getInstance().setMusicEnabled(newMusicEnabled);
+    await StorageService.updateUserSettings({ musicEnabled: newMusicEnabled });
   };
 
-  const handleSoundToggle = () => {
+  const handleSoundToggle = async () => {
     const newSoundEnabled = !settings.soundEnabled;
     setSettings(prev => ({ ...prev, soundEnabled: newSoundEnabled }));
+    AudioManager.getInstance().setSoundEnabled(newSoundEnabled);
+    await StorageService.updateUserSettings({ soundEnabled: newSoundEnabled });
     
-    // Play test sound when enabling
     if (newSoundEnabled) {
-      playTapSound();
+      AudioManager.getInstance().playTapSound();
     }
   };
 
   const handleDone = async () => {
-    playTapSound();
-    try {
-      await StorageService.updateUserSettings(settings);
-      navigation.goBack();
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      Alert.alert('Error', 'Failed to save settings');
-    }
+    AudioManager.getInstance().playTapSound();
+    navigation.goBack();
   };
 
   if (isLoading) {

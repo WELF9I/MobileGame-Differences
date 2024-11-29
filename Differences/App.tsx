@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-// Update the import to use default import
 import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import GameScreen from './src/screens/GameScreen';
@@ -11,6 +10,8 @@ import { MainLayout } from './src/layouts/MainLayout';
 import { StorageService } from './src/utils/storage';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { LogBox } from 'react-native';
+import AudioManager from './src/utils/AudioManager';
+
 const Stack = createNativeStackNavigator();
 
 const HomeScreenWithLayout = () => (
@@ -39,12 +40,22 @@ const GameScreenWithLayout = () => (
 
 const App = () => {
   useEffect(() => {
-    StorageService.initializeStorage();
+    const initializeApp = async () => {
+      await StorageService.initializeStorage();
+      await AudioManager.getInstance().initialize();
+    };
+    
+    initializeApp();
+    
+    return () => {
+      AudioManager.getInstance().cleanup();
+    };
   }, []);
   
   LogBox.ignoreLogs([
     'Non-serializable values were found in the navigation state',
   ]);
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>

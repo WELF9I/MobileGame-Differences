@@ -16,14 +16,15 @@ import { CheckIcon, CloseIcon } from '../lib/images';
 import { CongratsModal } from '../components/CongratsModal';
 import { GameOverModal } from '../components/GameOverModal';
 import { ExitGameModal } from '../components/ExitGameModal';
+import AudioManager from '../utils/AudioManager';
 
-// Define the route params type
 type GameScreenRouteParams = {
   levelId: number;
   handleExitConfirmation?: () => void;
 };
 
 const GameScreen = () => {
+  AudioManager.getInstance().playTapSound();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: GameScreenRouteParams }, 'params'>>();
   const { levelId } = route.params;

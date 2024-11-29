@@ -22,12 +22,16 @@ import {
 } from '../lib/images';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Level } from '../types';
+import AudioManager from '../utils/AudioManager';
+
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_SPACING = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // Accounting for padding and gap
 
 const HomeScreen = () => {
+  // When a button is pressed
+AudioManager.getInstance().playTapSound();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const [gameProgress, setGameProgress] = useState<GameProgress | null>(null);
