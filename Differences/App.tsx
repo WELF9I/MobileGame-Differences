@@ -9,7 +9,8 @@ import GameScreen from './src/screens/GameScreen';
 import { ChallengesScreen } from './src/screens/ChallengesScreen';
 import { MainLayout } from './src/layouts/MainLayout';
 import { StorageService } from './src/utils/storage';
-
+import { HeaderBackButton } from '@react-navigation/elements';
+import { LogBox } from 'react-native';
 const Stack = createNativeStackNavigator();
 
 const HomeScreenWithLayout = () => (
@@ -41,6 +42,9 @@ const App = () => {
     StorageService.initializeStorage();
   }, []);
   
+  LogBox.ignoreLogs([
+    'Non-serializable values were found in the navigation state',
+  ]);
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -68,10 +72,21 @@ const App = () => {
           <Stack.Screen 
             name="Game" 
             component={GameScreen}
-            options={{ 
+            options={({ navigation, route }) => ({ 
               headerShown: true,
-              title: ''
-            }}
+              title: '',
+              headerLeft: () => (
+                <HeaderBackButton
+                  onPress={() => {
+                    //@ts-ignore
+                    if (route.params?.handleExitConfirmation) {
+                      //@ts-ignore
+                      route.params.handleExitConfirmation();
+                    }
+                  }}
+                />
+              ),
+            })}
           />
         </Stack.Navigator>
       </NavigationContainer>

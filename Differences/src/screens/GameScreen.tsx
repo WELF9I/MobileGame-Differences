@@ -5,27 +5,35 @@ import {
   Image,
   StyleSheet,
   TouchableWithoutFeedback,
-  Dimensions,
   Animated,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { LEVELS } from '../config/levels';
 import { Difference } from '../types';
 import { StorageService } from '../utils/storage';
-import { CheckIcon, CloseIcon, BrokenHeartIcon } from '../lib/images';
+import { CheckIcon, CloseIcon } from '../lib/images';
+import { CongratsModal } from '../components/CongratsModal';
+import { GameOverModal } from '../components/GameOverModal';
+import { ExitGameModal } from '../components/ExitGameModal';
+
+// Define the route params type
+type GameScreenRouteParams = {
+  levelId: number;
+  handleExitConfirmation?: () => void;
+};
 
 const GameScreen = () => {
   const navigation = useNavigation();
-  const route = useRoute();
-  const { levelId } = route.params as { levelId: number };
+  const route = useRoute<RouteProp<{ params: GameScreenRouteParams }, 'params'>>();
+  const { levelId } = route.params;
   const level = LEVELS.find(l => l.id === levelId);
 
   const [attempts, setAttempts] = useState(3);
   const [foundDifferences, setFoundDifferences] = useState<Difference[]>([]);
   const [showCongrats, setShowCongrats] = useState(false);
   const [showGameOver, setShowGameOver] = useState(false);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [incorrectSpots, setIncorrectSpots] = useState<Array<{ x: number; y: number; id: number; animation: Animated.Value }>>([]);
   
   // Animation values
@@ -35,10 +43,31 @@ const GameScreen = () => {
   const progressBarWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    //@ts-ignore
+    navigation.setParams({ handleExitConfirmation });
+  }, []);
+  
+  useEffect(() => {
     if (!level) {
       navigation.goBack();
     }
   }, [level]);
+
+  const handleExitConfirmation = () => {
+    setShowExitConfirmation(true);
+  };
+
+  const handleContinue = () => {
+    setShowExitConfirmation(false);
+  };
+
+  const handleQuit = () => {
+    setShowExitConfirmation(false);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' as never }],
+    });
+  };
 
   const handleRestart = () => {
     setShowGameOver(false);
@@ -46,13 +75,6 @@ const GameScreen = () => {
     setFoundDifferences([]);
     setIncorrectSpots([]);
     gameOverScale.setValue(0);
-  };
-
-  const handleQuit = () => {
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Home' as never }],
-    });
   };
 
   const animateProgressBar = () => {
@@ -124,6 +146,8 @@ const GameScreen = () => {
     if (!level || attempts <= 0) return;
 
     const { locationX, locationY } = event.nativeEvent;
+    // Add this console.log to display the coordinates
+    console.log(`Image ${imageNumber} clicked at - X: ${Math.round(locationX)}, Y: ${Math.round(locationY)}`);
     
     const foundDifference = level.differences.find(diff => {
       const distance = Math.sqrt(
@@ -208,52 +232,6 @@ const GameScreen = () => {
     ));
   };
 
-  const CongratsModal = () => (
-    <Modal visible={showCongrats} transparent animationType="none">
-      <View style={styles.modalContainer}>
-        <Animated.View
-          style={[
-            styles.congratsCard,
-            {
-              transform: [{ scale: congratsScale }],
-            },
-          ]}
-        >
-          <Text style={styles.congratsTitle}>Félicitations !</Text>
-          <View style={styles.levelPreview}>
-            <Image source={level?.originalImage} style={styles.previewImage} />
-          </View>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: progressBarWidth.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-            </View>
-          </View>
-          <TouchableWithoutFeedback
-            onPress={() => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' as never }],
-              });
-            }}
-          >
-            <View style={styles.continueButton}>
-              <Text style={styles.continueButtonText}>Continuer</Text>
-            </View>
-          </TouchableWithoutFeedback>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
 
   if (!level) return null;
 
@@ -298,56 +276,32 @@ const GameScreen = () => {
         </TouchableWithoutFeedback>
       </View>
 
-      <CongratsModal />
+      <CongratsModal
+        visible={showCongrats}
+        level={level}
+        //@ts-ignore
+        navigation={navigation}
+        congratsScale={congratsScale}
+        progressBarWidth={progressBarWidth}
+        foundDifferences={foundDifferences}
+      />
+      
       <GameOverModal 
         visible={showGameOver}
         onRestart={handleRestart}
         onQuit={handleQuit}
         scale={gameOverScale}
       />
+
+      <ExitGameModal
+        visible={showExitConfirmation}
+        onContinue={handleContinue}
+        onExit={handleQuit}
+      />
     </SafeAreaView>
   );
 };
 
-const GameOverModal = ({ 
-  visible, 
-  onRestart, 
-  onQuit, 
-  scale 
-}: { 
-  visible: boolean; 
-  onRestart: () => void; 
-  onQuit: () => void; 
-  scale: Animated.Value; 
-}) => (
-  <Modal visible={visible} transparent animationType="none">
-    <View style={styles.modalContainer}>
-      <Animated.View
-        style={[
-          styles.gameOverCard,
-          {
-            transform: [{ scale }],
-          },
-        ]}
-      >
-        <Text style={styles.gameOverTitle}>Plus de vie !</Text>
-        <Image source={BrokenHeartIcon} style={styles.brokenHeartIcon} />
-        <View style={styles.buttonContainer}>
-          <TouchableWithoutFeedback onPress={onRestart}>
-            <View style={[styles.button, styles.retryButton]}>
-              <Text style={styles.buttonText}>Recommencer</Text>
-            </View>
-          </TouchableWithoutFeedback>
-          <TouchableWithoutFeedback onPress={onQuit}>
-            <View style={[styles.button, styles.quitButton]}>
-              <Text style={styles.buttonText}>Quitter</Text>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </Animated.View>
-    </View>
-  </Modal>
-);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -377,7 +331,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    elevation:5,
+    elevation: 5,
   },
   statLabel: {
     fontSize: 16,
@@ -421,122 +375,6 @@ const styles = StyleSheet.create({
   incorrectIcon: {
     width: 20,
     height: 20,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  congratsCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    width: '90%',
-    alignItems: 'center',
-  },
-
-  congratsTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-  },
-  levelPreview: {
-    width: '100%',
-    height: 200,
-    marginBottom: 20,
-    position: 'relative',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-    borderRadius: 10,
-  },
-  progressContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-  },
-  continueButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginTop: 10,
-    alignItems:'center'
-  },
-  continueButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  brokenHeartIcon: {
-    width: 60,
-    height: 60,
-    marginBottom: 20,
-    tintColor: '#FF5252',
-  },
-  gameOverCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 30,
-    width: '90%',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    width: '100%',
-    paddingHorizontal: 10,
-  },
-  button: {
-    paddingVertical: 12,
-    borderRadius: 25,
-    width: '48%', // Instead of using maxWidth and flex
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  retryButton: {
-    backgroundColor: '#4CAF50',
-
-  },
-  quitButton: {
-    backgroundColor: '#FF5252',
-
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  gameOverTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
   },
 });
 

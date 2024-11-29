@@ -12,3 +12,5 @@ export interface Difference {
     differences: Difference[];
     isLocked?: boolean;
   }
+
+  

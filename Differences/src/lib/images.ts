@@ -18,7 +18,10 @@ import Game2originalImage from '../assets/images/img2.png';
 import Game2modifiedImage from '../assets/images/img2.2.png';
 import Game3originalImage from '../assets/images/img3.png';
 import Game3modifiedImage from '../assets/images/img3.2.png';
-
+import Game4originalImage from '../assets/images/img4.png';
+import Game4modifiedImage from '../assets/images/img4.2.png';
+import Game5originalImage from '../assets/images/img5.png';
+import Game5modifiedImage from '../assets/images/img5.2.png';
 // Export the imported icons
 export { 
   CalendarStarIcon, 
@@ -38,7 +41,11 @@ export {
   Game1originalImage,
   Game2originalImage,
   Game3originalImage,
+  Game4originalImage,
+  Game5originalImage,
   Game1modifiedImage,
   Game2modifiedImage,
-  Game3modifiedImage
+  Game3modifiedImage,
+  Game4modifiedImage,
+  Game5modifiedImage
 };
