@@ -21,6 +21,7 @@ interface CongratsModalProps {
   congratsScale: Animated.Value;
   progressBarWidth: Animated.Value;
   foundDifferences: any[];
+  attempts: number;  // Add this line
 }
 
 export const CongratsModal: React.FC<CongratsModalProps> = ({
@@ -30,8 +31,40 @@ export const CongratsModal: React.FC<CongratsModalProps> = ({
   congratsScale,
   progressBarWidth,
   foundDifferences,
+  attempts,
 }) => {
   if (!level) return null;
+
+  const renderStars = () => {
+    const stars = [];
+    const totalStars = 3;
+    const activeStars = attempts;
+
+    for (let i = 0; i < totalStars; i++) {
+      const isActive = i < activeStars;
+      stars.push(
+        <Animated.Image
+          key={i}
+          source={require('../assets/icons/star.png')}
+          style={[
+            styles.starIcon,
+            {
+              opacity: isActive ? 1 : 0.3,
+              transform: [
+                {
+                  scale: congratsScale.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      );
+    }
+    return stars;
+  };
 
   return (
     <Modal visible={visible} transparent animationType="none">
@@ -48,6 +81,12 @@ export const CongratsModal: React.FC<CongratsModalProps> = ({
           <View style={styles.levelPreview}>
             <Image source={level.originalImage} style={styles.previewImage} />
           </View>
+          
+          {/* Add the stars container here */}
+          <View style={styles.starsContainer}>
+            {renderStars()}
+          </View>
+
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <Animated.View
@@ -139,5 +178,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 15,
+    gap: 8,
+  },
+  starIcon: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
   },
 });

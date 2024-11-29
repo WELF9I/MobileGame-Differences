@@ -285,6 +285,7 @@ const GameScreen = () => {
         congratsScale={congratsScale}
         progressBarWidth={progressBarWidth}
         foundDifferences={foundDifferences}
+        attempts={attempts}  // Add this line
       />
       
       <GameOverModal 
