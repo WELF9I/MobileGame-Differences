@@ -2,6 +2,8 @@
 
 **Differences Game** is a fun and interactive game where players spot differences between two images. The game is designed with simplicity and user-friendliness in mind, making it accessible for all ages.  
 
+![image](https://github.com/user-attachments/assets/14bd9241-dcd3-4d6e-961d-079d1ec6fde8)
+![image](https://github.com/user-attachments/assets/d698857f-8303-4336-aa68-6370a84f3468)
 ---
 
 ### **Features**  
