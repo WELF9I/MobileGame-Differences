@@ -2,7 +2,8 @@
 
 **Differences Game** is a fun and interactive game where players spot differences between two images. The game is designed with simplicity and user-friendliness in mind, making it accessible for all ages.  
 
-![image](https://github.com/user-attachments/assets/14bd9241-dcd3-4d6e-961d-079d1ec6fde8)
+![image](https://github.com/user-attachments/assets/0024877b-c6eb-4c04-87e6-6827eee585b2)
+
 ---
 
 ### **Features**  
@@ -22,7 +23,7 @@
 
 1. Clone the repository:  
    ```bash
-   git clone [https://github.com/your-username/differences-game.git](https://github.com/WELF9I/MobileGame-Differences.git)
+   git clone https://github.com/WELF9I/MobileGame-Differences.git
    cd MobileGame-Differences/Differences
    ```  
 
